@@ -250,20 +250,22 @@ Case "/result":
    String currency = jsonResponse.getJSONObject("orderDetails").getString("orderCurrency");
 
    if (isValidKey) {
-				// Establece variables en el contexto para la plantilla	
-				context.setVariable("krHash", krHash);
-        			context.setVariable("krHashAlgorithm", krHashAlgorithm);
-        			context.setVariable("krAnswerType", krAnswerType);
-        			context.setVariable("krAnswer", krAnswer);
-        			context.setVariable("krHashKey", krHashKey);
-				context.setVariable("pJson", pJson);
-				context.setVariable("orderStatus", orderStatus);
-				context.setVariable("orderTotalAmount", orderAmount);
-				context.setVariable("orderId", orderId);
-				context.setVariable("currency", currency);
+	// Establece variables en el contexto para la plantilla	
+	context.setVariable("krHash", krHash);
+	context.setVariable("krHashAlgorithm", krHashAlgorithm);
+	context.setVariable("krAnswerType", krAnswerType);
+	context.setVariable("krAnswer", krAnswer);
+	context.setVariable("krHashKey", krHashKey);
+	context.setVariable("pJson", pJson);
+	context.setVariable("orderStatus", orderStatus);
+	context.setVariable("orderTotalAmount", orderAmount);
+	context.setVariable("orderId", orderId);
+	context.setVariable("currency", currency);
 			
-			  // Renderizando el template y enviando los datos agregados al contexto
-			  templateEngine.process("result", context, response.getWriter());
+	// Renderizando el template y enviando los datos agregados al contexto
+	templateEngine.process("result", context, response.getWriter());
+	break;
+  }
 ```
 ℹ️ Para más información: [Analizar resultado del pago](https://secure.micuentaweb.pe/doc/es-PE/rest/V4.0/kb/payment_done.html)
 
