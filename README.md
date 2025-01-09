@@ -83,7 +83,7 @@ HMAC_SHA256=CHANGE_ME_HMAC_SHA_256
 mvn package 
 ``` 
 
-2.  Mover el archivo `Popin-PaymentForm-Java.war` creado en la carpeta `/target` a la ruta `/webapps` de Apache Tomcat: `/opt/tomcat/webapps(Linux)` - `C:\Program Files\Apache Software Foundation\Tomcat 9.0\webapps(Windows)`
+2.  Mover el archivo `Popin-PaymentForm-Servlet-Java` creado en la carpeta `/target` a la ruta `/webapps` de Apache Tomcat: `/opt/tomcat/webapps(Linux)` - `C:\Program Files\Apache Software Foundation\Tomcat 9.0\webapps(Windows)`
 
 3.  Abrir el navegador web(Chrome, Mozilla, Safari, etc) con el puerto 8080 que abrió Tomcat : `http://127.0.0.1:8080/Popin-PaymentForm-Servlet-Java/` y realizar una compra de prueba.
 
