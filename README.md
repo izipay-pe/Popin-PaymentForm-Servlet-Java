@@ -60,16 +60,19 @@ Reemplace **[CHANGE_ME]** con sus credenciales de `API REST` extraídas desde el
 
 - Editar el archivo `config.properties` en la ruta `src/main/resources/`:
 ```java
-Archivo para la configuración de las crendeciales de comercio
+# Archivo para la configuración de las crendeciales de comercio
 #
 # Identificador de la tienda
-merchantCode=CHANGE_ME_USER_ID
+USERNAME=CHANGE_ME_USER_ID
+
 # Clave de Test o Producción
-password=CHANGE_ME_PASSWORD
+PASSWORD=CHANGE_ME_PASSWORD
+
 # Clave Pública de Test o Producción
-publicKey=CHANGE_ME_PUBLIC_KEY
+PUBLIC_KEY=CHANGE_ME_PUBLIC_KEY
+
 # Clave HMAC-SHA-256 de Test o Producción
-hmacKey=CHANGE_ME_HMAC_SHA_256
+HMAC_SHA256=CHANGE_ME_HMAC_SHA_256
 ```
 
 ### Ejecutar proyecto
@@ -96,7 +99,7 @@ mvn package
 Extraer las claves de `usuario` y `contraseña` del Backoffice Vendedor, concatenar `usuario:contraseña` y agregarlo en la solicitud del encabezado `Authorization`. Podrás encontrarlo en el archivo `src/main/example/McwController.java`.
 ```java
 // Encabezado Basic con concatenación de "usuario:contraseña" en base64
-String encoded = Base64.getEncoder().encodeToString((merchantCode+":"+password).getBytes(StandardCharsets.UTF_8));
+String encoded = Base64.getEncoder().encodeToString((USERNAME+":"+PASSWORD).getBytes(StandardCharsets.UTF_8));
 ...
 ...
 conn.setRequestProperty("Authorization", "Basic "+encoded);
@@ -106,31 +109,19 @@ conn.setRequestProperty("Authorization", "Basic "+encoded);
 Para configurar la pasarela se necesita generar un formtoken. Se realizará una solicitud API REST a la api de creación de pagos:  `https://api.micuentaweb.pe/api-payment/V4/Charge/CreatePayment` con los datos de la compra para generar el formtoken. Podrás encontrarlo en el archivo `src/main/example/McwController.java`.
 
 ```java
-public String generarToken(Map<String, String> parameters) {
-    // Definiendo valores para la estructura del Json
-    //// Crear el cuerpo de la solicitud JSON
+public String generateFormToken(Map<String, String> parameters) {
     JSONObject billingDetails = new JSONObject();
     billingDetails.put("firstName", parameters.get("firstName"));
     ...
     ...
     billingDetails.put("zipCode", parameters.get("zipCode"));
-	
-    JSONObject customer = new JSONObject();
-    customer.put("email", parameters.get("email"));
-    customer.put("billingDetails", billingDetails);
-
-    JSONObject requestBody = new JSONObject();
-    requestBody.put("amount", amount);
-    ...
-    ...
-    requestBody.put("orderId", parameters.get("orderId"));
     
     // Creando la Conexión
-	  try {
-	    ...
+    try {
+      ...
       ...
       // Crear la conexión a la API para la creación del FormToken
-	    URL url = new URL("https://api.micuentaweb.pe/api-payment/V4/Charge/CreatePayment");
+      URL url = new URL("https://api.micuentaweb.pe/api-payment/V4/Charge/CreatePayment");
       HttpURLConnection conn = (HttpURLConnection) url.openConnection();
       ...
       ...
@@ -148,13 +139,9 @@ public String generarToken(Map<String, String> parameters) {
           ...
       }
 		
-		  // Obtenemos el FormToken generado
-		  JSONObject jsonResponse = new JSONObject(response.toString()); 
-		  formToken = jsonResponse.getJSONObject("answer").getString("formToken");
-      }
-
-}
-
+      // Obtenemos el FormToken generado
+      JSONObject jsonResponse = new JSONObject(response.toString());
+      formToken = jsonResponse.getJSONObject("answer").getString("formToken");
 ```
 ℹ️ Para más información: [Formtoken](https://secure.micuentaweb.pe/doc/es-PE/rest/V4.0/javascript/guide/embedded/formToken.html)
 ### Visualizar formulario
@@ -190,82 +177,53 @@ Body:
 Se configura la función `checkHash` que realizará la validación de los datos del parámetro `kr-answer` utilizando una clave de encriptacón definida por el parámetro `kr-hash-key`. Podrás encontrarlo en el archivo `src/main/example/McwController.java`.
 
 ```java
-public boolean checkHash(String krHash, String krHashKey, String krAnswer){
-  // Obtenemos la Password y la Clave Pública del archivo 'config.properties'
-	String passwordKey = properties.getProperty("password");
-	String hmacSha256Key = properties.getProperty("hmacKey");
-	String key;
-	
-	// Verifica si la respuesta es de 'Retorno a la tienda' o de la 'IPN'
-	if ("sha256_hmac".equals(krHashKey)){
-		key = hmacSha256Key;
-	} else if ("password".equals(krHashKey)) {
-        	key = passwordKey;
-        } else {	
-		return false;
-        }
-       	
-	// Calculamos un Hash usando el valor del 'kr-answer' y el valor del 'kr-hash-key'
+// Verifica la integridad del Hash recibido y el generado  	
+public boolean checkHash(String krHash, String key, String krAnswer){
 	String calculatedHash = HmacSha256(krAnswer, key);
-	// Comparamos si el hash es igual y retornamos la respuesta
 	return calculatedHash.equals(krHash);
-
-  }
+    } 
 ```
 
 Se valida que la firma recibida es correcta. Podrás encontrarlo en el archivo `src/main/example/McwServlet.java`.
 
 ```java
-Case "/result":
-  ...
-  ...
-  boolean isValidKey = mcwController.checkHash(krHash, krHashKey, krAnswer);
-  // Procesa la condicional si la firma es correcta
-  if (isValidKey) {
-    ...
-    ...
-  } else {
-    break;
-  }
+case "/result":
+
+	String HMAC_SHA256 = properties.getProperty("HMAC_SHA256");
+		
+	// Válida que la respuesta sea íntegra comprando el hash recibido en el 'kr-hash' con el generado con el 'kr-answer'
+	if (!mcwController.checkHash(krHash, HMAC_SHA256, krAnswer)){
+		break;
+	}
+	...
+	...		
+	break;
+
 ```
 En caso que la validación sea exitosa, se puede mostrara los datos de `kr-answer` a través de un JSON y mostrar los datos del pago realizado. Podrás encontrarlo en el archivo `src/main/example/McwServlet.java`.
 
 ```java
-Case "/result":
-   // Asignando los valores de la respuesta de Izipay en las variables
-   krHash = request.getParameter("kr-hash");
-   ...
-   ...
-   krHashKey = request.getParameter("kr-hash-key");
+case "/result":
 
-   // Almacenamos los datos del kr-answer
-   jsonResponse = new JSONObject(krAnswer);
-   // Convertimos el valor del JSON obtenido a 'pretty print' para su visualización en el template
-   String pJson = jsonResponse.toString(4);
+	String HMAC_SHA256 = properties.getProperty("HMAC_SHA256");
 		
-   // Almacenamos los datos del pago en las variables
-   orderStatus = jsonResponse.getString("orderStatus");
-   ...
-   ...
-   String currency = jsonResponse.getJSONObject("orderDetails").getString("orderCurrency");
-
-   if (isValidKey) {
+	// Válida que la respuesta sea íntegra comprando el hash recibido en el 'kr-hash' con el generado con el 'kr-answer'
+	if (!mcwController.checkHash(krHash, HMAC_SHA256, krAnswer)){
+		break;
+	}
+	...
+	...
+							
 	// Establece variables en el contexto para la plantilla	
 	context.setVariable("krHash", krHash);
-	context.setVariable("krHashAlgorithm", krHashAlgorithm);
-	context.setVariable("krAnswerType", krAnswerType);
-	context.setVariable("krAnswer", krAnswer);
-	context.setVariable("krHashKey", krHashKey);
-	context.setVariable("pJson", pJson);
-	context.setVariable("orderStatus", orderStatus);
-	context.setVariable("orderTotalAmount", orderAmount);
-	context.setVariable("orderId", orderId);
+        ...
+	...
 	context.setVariable("currency", currency);
 			
 	// Renderizando el template y enviando los datos agregados al contexto
 	templateEngine.process("result", context, response.getWriter());
+			
 	break;
-  }
 ```
 ℹ️ Para más información: [Analizar resultado del pago](https://secure.micuentaweb.pe/doc/es-PE/rest/V4.0/kb/payment_done.html)
 
@@ -277,19 +235,23 @@ Se realiza la verificación de la firma utilizando la función `checkhash` y se 
 
 ```java
 case "/ipn":
-    // Verifica el orderStatus PAID
-		orderStatus = jsonResponse.getString("orderStatus");
-		orderId = jsonResponse.getJSONObject("orderDetails").getString("orderId");
-		String uuid = transactions.getString("uuid");
-		
-		// Válida que la respuesta sea íntegra comprando el hash recibido en el 'kr-hash' con el generado con el 'kr-answer'
-		boolean isValidKey = mcwController.checkHash(krHash, krHashKey, krAnswer);
-		
-		// Procesa la condicional si la firma es correcta
-		if (isValidKey) {
-			// Imprimiendo en el log el Order Status
-			System.out.println("OK! Order Status is " + orderStatus);
-		}
+
+	String PASSWORD = properties.getProperty("PASSWORD");
+	...
+	...	
+	// Válida que la respuesta sea íntegra comprando el hash recibido en el 'kr-hash' con el generado con el 'kr-answer'
+	if (!mcwController.checkHash(krHash, PASSWORD, krAnswer)){
+		System.out.println("Notification Error");
+	}
+	...
+	...		
+	// Verifica el orderStatus PAID
+	orderStatus = jsonResponse.getString("orderStatus");
+	orderId = jsonResponse.getJSONObject("orderDetails").getString("orderId");
+	String uuid = transactions.getString("uuid");
+	// Retornando el OrderStatus
+	response.getWriter().write("OK! Order Status is " + orderStatus);
+	break;
 ```
 
 La IPN debe ir configurada en el Backoffice Vendedor, en `Configuración -> Reglas de notificación -> URL de notificación al final del pago`
@@ -318,16 +280,19 @@ Reemplace **[CHANGE_ME]** con sus credenciales de PRODUCCIÓN de `API REST` extr
 
 - Editar el archivo `config.properties` en la ruta `src/main/resources/`:
 ```java
-Archivo para la configuración de las crendeciales de comercio
+# Archivo para la configuración de las crendeciales de comercio
 #
 # Identificador de la tienda
-merchantCode=CHANGE_ME_USER_ID
+USERNAME=CHANGE_ME_USER_ID
+
 # Clave de Test o Producción
-password=CHANGE_ME_PASSWORD
+PASSWORD=CHANGE_ME_PASSWORD
+
 # Clave Pública de Test o Producción
-publicKey=CHANGE_ME_PUBLIC_KEY
+PUBLIC_KEY=CHANGE_ME_PUBLIC_KEY
+
 # Clave HMAC-SHA-256 de Test o Producción
-hmacKey=CHANGE_ME_HMAC_SHA_256
+HMAC_SHA256=CHANGE_ME_HMAC_SHA_256
 ```
 
 ## 🎨 5. Personalización
