@@ -24,20 +24,20 @@ public class McwController {
     
     private McwProperties properties = new McwProperties();
 
-    // Método para generar un orderNumer basado en la hora
-    public String generarOrderId() {
+    // Método para generar un orderNumber basado en la hora
+    public String generateOrderId() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'Order-'yyyyMMddHHmmss");
         return LocalDateTime.now().format(formatter);
     }
 
-    public String generarToken(Map<String, String> parameters) {
+
+    // Genera el FormToken para el despliegue de la pasarela en web
+    public String generateFormToken(Map<String, String> parameters) {
         
 
 	// Obteniendo claves API
-	String merchantCode = properties.getProperty("merchantCode");
-	String password =  properties.getProperty("password");
-        String publicKey = properties.getProperty("publicKey");
-	String hmacKey = properties.getProperty("hmacKey");
+	String USERNAME = properties.getProperty("USERNAME");
+	String PASSWORD =  properties.getProperty("PASSWORD");
 	String formToken = "";
 
 	// Definiendo valores para la estructura del Json
@@ -72,7 +72,7 @@ public class McwController {
 	// Creando la Conexión
 	try {
 	   // Encabezado Basic con concatenación de "usuario:contraseña" en base64
-	   String encoded = Base64.getEncoder().encodeToString((merchantCode+":"+password).getBytes(StandardCharsets.UTF_8));
+	   String encoded = Base64.getEncoder().encodeToString((USERNAME+":"+PASSWORD).getBytes(StandardCharsets.UTF_8));
 
            // Crear la conexión a la API para la creación del FormToken
 	   URL url = new URL("https://api.micuentaweb.pe/api-payment/V4/Charge/CreatePayment");
@@ -83,7 +83,6 @@ public class McwController {
            conn.setDoOutput(true);
 
 	   // Realiza la solicitud POST
-
 	   try (OutputStream os = conn.getOutputStream()) {
         	byte[] input = requestBody.toString().getBytes(StandardCharsets.UTF_8); // Codifica explícitamente como UTF-8
         	os.write(input, 0, input.length);
@@ -98,9 +97,9 @@ public class McwController {
                 while ((line = bf.readLine()) != null) {
                     response.append(line);
                 }
-
+		
 		// Obtenemos el FormToken generado
-		JSONObject jsonResponse = new JSONObject(response.toString());
+		JSONObject jsonResponse = new JSONObject(response.toString()); 
 		formToken = jsonResponse.getJSONObject("answer").getString("formToken");
 
 
@@ -111,41 +110,28 @@ public class McwController {
         }
 	
 	return formToken;
-    	} 
-
-   // Genera un hash HMAC-SHA256
-   public String HmacSha256(String data, String key) {
-    try {
-        Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-        SecretKeySpec secret_key = new SecretKeySpec(key.getBytes("UTF-8"), "HmacSHA256");
-        sha256_HMAC.init(secret_key);
-        return Hex.encodeHexString(sha256_HMAC.doFinal(data.getBytes("UTF-8")));
-    } catch (NoSuchAlgorithmException | UnsupportedEncodingException | InvalidKeyException e) {
-        e.printStackTrace();
-        throw new RuntimeException("Error generando HMAC SHA256", e);
+    	}
+   
+    
+    // Genera un hash HMAC-SHA256
+    public String HmacSha256(String data, String key) {
+    	try {
+        	Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+        	SecretKeySpec secret_key = new SecretKeySpec(key.getBytes("UTF-8"), "HmacSHA256");
+        	sha256_HMAC.init(secret_key);
+        	return Hex.encodeHexString(sha256_HMAC.doFinal(data.getBytes("UTF-8")));
+    	} catch (NoSuchAlgorithmException | UnsupportedEncodingException | InvalidKeyException e) {
+        	e.printStackTrace();
+        	throw new RuntimeException("Error generando HMAC SHA256", e);
     	}
     }
 
-    // Verifica la integridad del Hash recibido y el generado 
-    public boolean checkHash(String krHash, String krHashKey, String krAnswer){
-	String passwordKey = properties.getProperty("password");
-	String hmacSha256Key = properties.getProperty("hmacKey");
-	String key;
 
-	// Verifica si la respuesta es de 'Retorno a la tienda' o de la 'IPN'
-	if ("sha256_hmac".equals(krHashKey)){
-		key = hmacSha256Key;
-	} else if ("password".equals(krHashKey)) {
-        	key = passwordKey;
-        } else {	
-		return false;
-        }
-        
-	// Calculamos un Hash usando el valor del 'kr-answer' y el valor del 'kr-hash-key'
+    // Verifica la integridad del Hash recibido y el generado  	
+    public boolean checkHash(String krHash, String key, String krAnswer){
+	
 	String calculatedHash = HmacSha256(krAnswer, key);
-	// Comparamos si el hash es igual y retornamos la respuesta
 	return calculatedHash.equals(krHash);
 
-    }
+    } 
 }
-
